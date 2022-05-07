@@ -24,6 +24,7 @@ public class GuyRevamp {
     private boolean accelerating, jumpCancel, onGround, collisionDetected;
     private Rectangle rect;
     private Vector2 pos;
+    private float groundRange[];
     private float speed, delta,
             gravityAccel = 600f, gravitySpeed = 0, gravityMaxSpeed = 600f,
             maxJumpSpeed = 600f, jumpSpeed = maxJumpSpeed, jumpAcceleration = 225f;
@@ -34,6 +35,7 @@ public class GuyRevamp {
         this.rect = new Rectangle(x, y, neutral.getRegionWidth(), neutral.getRegionHeight());
         this.left = false;
         this.neu = true;
+        this.groundRange = new float[2];
     }
 
     // constructor clean up
@@ -118,11 +120,11 @@ public class GuyRevamp {
                 two = true;
             }
             //currently works best if it only considers 1 corner at a time, thus !one (and !two 5 lines below)
-            if(!one && Intersector.overlaps(this.rect, rectThree)) {
+            if(Intersector.overlaps(this.rect, rectThree)) {
                 rects.add(new RectangleHelper(rectThree, (byte)2));
                 three = true;
             }
-            if(!two && Intersector.overlaps(this.rect, rectFour)) {
+            if(Intersector.overlaps(this.rect, rectFour)) {
                 rects.add(new RectangleHelper(rectFour, (byte)3));
                 four = true;
             }
@@ -152,6 +154,10 @@ public class GuyRevamp {
             gravitySpeed = 0;
             jumpSpeed = maxJumpSpeed * jumpTimeTwo;
             if((deltaJumpTimer += delta) > .1) jumpTimeTwo = 0;
+            if(onGround && !(groundRange[0] < pos.x && pos.x < groundRange[1])) {
+                applyGravity();
+                onGround = false;
+            }
         }
         //handle direction swap
         //closest[2] holds the id of rectangle side. 0 and 2 ids declare left or right
@@ -161,7 +167,7 @@ public class GuyRevamp {
             jumpCancel = true;
         }
         else if(onGround && collisionDetected) {
-            jumpTimeTwo = -1f;
+            jumpTimeTwo = 0;
         }
     }
 
@@ -195,6 +201,7 @@ public class GuyRevamp {
                         closest[2] = 1;
                         onGround = true;
                         closest[0] = this.rect.x; closest[1] = r.r.y;
+                        groundRange[0] = r.r.x; groundRange[1] = r.r.x + r.r.width;
                     }
                     //if head collision
                     else {
@@ -303,7 +310,7 @@ public class GuyRevamp {
         if(jumpCancel) {
             jumpSpeed = 0;
         }
-        else if(!collisionDetected && !Gdx.input.isKeyPressed(Input.Keys.SPACE) && jumpTime < jumpTimeTwo) {
+        if(!collisionDetected && !Gdx.input.isKeyPressed(Input.Keys.SPACE) && jumpTime < jumpTimeTwo) {
             onGround = false;
             jumpTime += delta;
             jumpAcceleration = maxJumpSpeed / jumpTimeTwo;
@@ -372,4 +379,8 @@ public class GuyRevamp {
     public Vector2 pos() { return pos; }
 
     public Rectangle getRect() { return rect; }
+
+    public void setPos(Vector2 vector2) {
+        pos = vector2;
+    }
 }
