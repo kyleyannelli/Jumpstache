@@ -32,6 +32,8 @@ public class GuyRevamp {
         initializeSprites();
         this.pos = new Vector2(x, y);
         this.rect = new Rectangle(x, y, neutral.getRegionWidth(), neutral.getRegionHeight());
+        this.left = false;
+        this.neu = true;
     }
 
     // constructor clean up
@@ -93,6 +95,7 @@ public class GuyRevamp {
     //i was having a lot of trouble with collision. the left right top bottom concept is from here http://www.jeffreythompson.org/collision-detection/line-rect.php
     private void handleCollision(MapObjects collisionObjects) {
         collisionDetected = false;
+        boolean unchanged = true;
         float[] closest = {99999, 99999};
         for(RectangleMapObject rect : collisionObjects.getByType(RectangleMapObject.class)) {
             boolean one = false, two = false, three = false, four = false;
@@ -132,6 +135,7 @@ public class GuyRevamp {
                 //determine which is closest
                 if(Vector.distance(new Vector2(closest[0], closest[1]), this.pos) > Vector.distance(new Vector2(tempPos[0], tempPos[1]), this.pos)) {
                     closest = tempPos;
+                    unchanged = false;
                 }
             }
         }
@@ -141,8 +145,7 @@ public class GuyRevamp {
             jumpCancel = false;
         }
         else {
-            this.pos = new Vector2(closest[0], closest[1]);
-            onGround = false;
+            if(!unchanged) this.pos = new Vector2(closest[0], closest[1]);
             jumping = false;
             gravitySpeed = 0;
             jumpSpeed = maxJumpSpeed * jumpTimeTwo;
@@ -159,10 +162,12 @@ public class GuyRevamp {
                 if(Vector.distance(this.pos, new Vector2(r.r.x, this.rect.y)) < closestDistance) {
                     //collision is the right side of character
                     if(r.id == (byte) 0) {
+                        onGround = false;
                         closest[0] = r.r.x - this.rect.width; closest[1] = this.rect.y;
                     }
                     //collision is the left side of character
                     else {
+                        onGround = false;
                         closest[0] = r.r.x; closest[1] = this.rect.y;
                     }
                     closestDistance = Vector.distance(this.pos, new Vector2(closest[0], closest[1]));
@@ -178,6 +183,7 @@ public class GuyRevamp {
                     }
                     //if head collision
                     else {
+                        onGround = false;
                         closest[0] = this.rect.x; closest[1] = r.r.y - this.rect.height;
                     }
 
@@ -191,7 +197,7 @@ public class GuyRevamp {
     private void handleInput() {
         int direction = 1;
         //force direction selected when releasing jump
-        if(onGround) {
+        if(!onGround) {
             switch(left ? 2 : 0 + (neu ? 1 : 0)) {
                 case 0:
                     direction = 0;
@@ -240,6 +246,7 @@ public class GuyRevamp {
                 //neutral, set sprite appropriately
                 currentSprite = neutral;
                 neu = true;
+                if(speed == 0) left = false;
             }
         }
     }
@@ -281,10 +288,10 @@ public class GuyRevamp {
             jumpSpeed = 0;
         }
         if(!collisionDetected && !Gdx.input.isKeyPressed(Input.Keys.SPACE) && jumpTime < jumpTimeTwo) {
+            onGround = false;
             jumpTime += delta;
             jumpAcceleration = maxJumpSpeed / jumpTimeTwo;
             if((jumpSpeed - jumpAcceleration * delta) > 1f)  {
-                onGround = false;
                 jumpSpeed -= jumpAcceleration * delta;
             }
             pos.y += (float) Math.cos(Math.toRadians(0)) * ((jumpSpeed * 3)* delta);

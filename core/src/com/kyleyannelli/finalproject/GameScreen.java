@@ -68,18 +68,17 @@ public class GameScreen implements Screen {
         if(Gdx.input.isKeyJustPressed(Input.Keys.R)) reloadMap();
         ScreenUtils.clear(0, 0, 0, 1);
         adjustObjects();
-        guy.update(delta);
-        handleGuyGravityAndCollision(delta, this.guy);
-        guy.decelerate(delta);
-        jump(delta, this.guy);
-        if(followGuy.get((int)deltaTimerEvil) != null) {
-            lastEvilInput = followGuy.get((int)deltaTimerEvil);
-            handleGuyGravityAndCollisionIntInput(delta, this.evilGuy, lastEvilInput);
-        } else {
-            handleGuyGravityAndCollisionIntInput(delta, this.evilGuy, lastEvilInput);
-        }
-        jump(delta, this.evilGuy, lastEvilInput);
-        debug();
+//        guy.update(delta);
+//        handleGuyGravityAndCollision(delta, this.guy);
+//        guy.decelerate(delta);
+//        jump(delta, this.guy);
+//        if(followGuy.get((int)deltaTimerEvil) != null) {
+//            lastEvilInput = followGuy.get((int)deltaTimerEvil);
+//            handleGuyGravityAndCollisionIntInput(delta, this.evilGuy, lastEvilInput);
+//        } else {
+//            handleGuyGravityAndCollisionIntInput(delta, this.evilGuy, lastEvilInput);
+//        }
+//        jump(delta, this.evilGuy, lastEvilInput);
         camera.update();
         game.batch.setProjectionMatrix(camera.combined);
         game.batch.begin();
@@ -87,12 +86,12 @@ public class GameScreen implements Screen {
         tiledMapRenderer.setView(camera);
         tiledMapRenderer.render();
 //        game.batch.draw(evilGuy.currentSprite(), evilGuy.pos().x, evilGuy.pos().y);
-        evilGuy.update(delta);
+//        evilGuy.update(delta);
 //        font.draw(game.batch, ""+(int)guy.pos().y, guy.pos().x, guy.pos().y + guy.currentSprite().getRegionHeight());
         revamp.update(delta, collisionObjects);
         game.batch.draw(revamp.currentSprite(), revamp.pos().x, revamp.pos().y);
         game.batch.end();
-        cameraFollowGuy();
+//        cameraFollowGuy();
 
         deltaTimer += delta;
         deltaTimerEvil += delta;
