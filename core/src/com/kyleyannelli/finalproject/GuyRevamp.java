@@ -19,13 +19,13 @@ public class GuyRevamp {
     private float FRAME_DURATION_FACTOR = 7f;
     private TextureRegion currentSprite, neutral, crouch;
     private Animation<TextureRegion> walkingLeft, walkingRight;
-    public float deltaJumpTimer, frameTime, jumpTime, jumpTimeTwo, maxJumpTime = .76f;
+    public float deltaJumpTimer, frameTime, jumpTime, jumpTimeTwo, maxJumpTime = .8f;
     public boolean jumping, left, neu;
     private boolean accelerating, jumpCancel, onGround, collisionDetected;
     private Rectangle rect;
     private Vector2 pos;
     private float speed, delta,
-            gravityAccel = 300, gravitySpeed = 0, gravityMaxSpeed = 2000f,
+            gravityAccel = 600f, gravitySpeed = 0, gravityMaxSpeed = 600f,
             maxJumpSpeed = 600f, jumpSpeed = maxJumpSpeed, jumpAcceleration = 225f;
 
     public GuyRevamp(float x, float y) {
@@ -96,13 +96,14 @@ public class GuyRevamp {
     private void handleCollision(MapObjects collisionObjects) {
         collisionDetected = false;
         boolean unchanged = true;
-        float[] closest = {99999, 99999};
+        float[] closest = {99999, 99999, -1};
         for(RectangleMapObject rect : collisionObjects.getByType(RectangleMapObject.class)) {
             boolean one = false, two = false, three = false, four = false;
+            //uses helper class that just adds a byte id
             Array<RectangleHelper> rects = new Array<>();
             //convert rectmapobj to libgdx rectangle for Intersector use
             Rectangle r = rect.getRectangle();
-            //this is kind of clunky but converting the rectangle to lines by using zero height (or width).
+            //create rects with zero height to emulate lines
             //one starts at bottom left of rectangle, lines go clockwise
             Rectangle rectOne = new Rectangle(r.x, r.y, 0, r.height),
                     rectTwo = new Rectangle(r.x, r.y + r.height, r.width, 0),
@@ -116,6 +117,7 @@ public class GuyRevamp {
                 rects.add(new RectangleHelper(rectTwo, (byte)1));
                 two = true;
             }
+            //currently works best if it only considers 1 corner at a time, thus !one (and !two 5 lines below)
             if(!one && Intersector.overlaps(this.rect, rectThree)) {
                 rects.add(new RectangleHelper(rectThree, (byte)2));
                 three = true;
@@ -151,10 +153,20 @@ public class GuyRevamp {
             jumpSpeed = maxJumpSpeed * jumpTimeTwo;
             if((deltaJumpTimer += delta) > .1) jumpTimeTwo = 0;
         }
+        //handle direction swap
+        //closest[2] holds the id of rectangle side. 0 and 2 ids declare left or right
+        if((closest[2] == 0 || closest[2] == 2) && !onGround && collisionDetected) {
+            if(left) left = false;
+            else left = true;
+            jumpCancel = true;
+        }
+        else if(onGround && collisionDetected) {
+            jumpTimeTwo = -1f;
+        }
     }
 
     private float[] determineClosestRect(Array<RectangleHelper> rects) {
-        float[] closest = new float[2];
+        float[] closest = new float[3];
         float closestDistance = Float.MAX_VALUE;
         for(RectangleHelper r : rects) {
             //if left or right side
@@ -162,11 +174,13 @@ public class GuyRevamp {
                 if(Vector.distance(this.pos, new Vector2(r.r.x, this.rect.y)) < closestDistance) {
                     //collision is the right side of character
                     if(r.id == (byte) 0) {
+                        closest[2] = 0;
                         onGround = false;
                         closest[0] = r.r.x - this.rect.width; closest[1] = this.rect.y;
                     }
                     //collision is the left side of character
                     else {
+                        closest[2] = 2;
                         onGround = false;
                         closest[0] = r.r.x; closest[1] = this.rect.y;
                     }
@@ -178,11 +192,13 @@ public class GuyRevamp {
                 if(Vector.distance(this.pos, new Vector2(this.rect.x, r.r.y)) < closestDistance) {
                     //if foot collision
                     if(r.id == (byte)1) {
+                        closest[2] = 1;
                         onGround = true;
                         closest[0] = this.rect.x; closest[1] = r.r.y;
                     }
                     //if head collision
                     else {
+                        closest[2] = 3;
                         onGround = false;
                         closest[0] = this.rect.x; closest[1] = r.r.y - this.rect.height;
                     }
@@ -287,7 +303,7 @@ public class GuyRevamp {
         if(jumpCancel) {
             jumpSpeed = 0;
         }
-        if(!collisionDetected && !Gdx.input.isKeyPressed(Input.Keys.SPACE) && jumpTime < jumpTimeTwo) {
+        else if(!collisionDetected && !Gdx.input.isKeyPressed(Input.Keys.SPACE) && jumpTime < jumpTimeTwo) {
             onGround = false;
             jumpTime += delta;
             jumpAcceleration = maxJumpSpeed / jumpTimeTwo;
