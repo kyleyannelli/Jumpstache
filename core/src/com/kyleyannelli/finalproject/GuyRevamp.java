@@ -17,14 +17,14 @@ public class GuyRevamp {
     //may want to consider changing DECEL_FACTOR to a mutable in the case of an slippery platform, lower decel factor...
     private final int MAX_SPEED = 250, ACCELERATION = 200, DECEL_FACTOR = 6;
     private float FRAME_DURATION_FACTOR = 7f;
-    private TextureRegion currentSprite, neutral, crouch;
+    private TextureRegion currentSprite, neutral, crouch, fallen, fallingLeft, fallingRight;
     private Animation<TextureRegion> walkingLeft, walkingRight;
     public float deltaJumpTimer, frameTime, jumpTime, jumpTimeTwo, maxJumpTime = .8f;
     public boolean jumping, left, neu;
-    private boolean accelerating, jumpCancel, onGround, collisionDetected;
+    private boolean accelerating, jumpCancel, onGround, collisionDetected, inputTouchedPostFall, bouncing;
     private Rectangle rect;
     private Vector2 pos;
-    private float groundRange[];
+    private float groundRange[], lastGroundY;
     private float speed, delta,
             gravityAccel = 600f, gravitySpeed = 0, gravityMaxSpeed = 600f,
             maxJumpSpeed = 600f, jumpSpeed = maxJumpSpeed, jumpAcceleration = 225f;
@@ -35,13 +35,17 @@ public class GuyRevamp {
         this.rect = new Rectangle(x, y, neutral.getRegionWidth(), neutral.getRegionHeight());
         this.left = false;
         this.neu = true;
-        this.groundRange = new float[2];
+        this.groundRange = new float[3];
+        this.inputTouchedPostFall = true;
     }
 
     // constructor clean up
     private void initializeSprites() {
         this.neutral = new TextureRegion(new Texture("character/characterNeutral.png"));
         this.crouch = new TextureRegion(new Texture("character/characterCrouch.png"));
+        this.fallen = new TextureRegion(new Texture("character/characterFallen.png"));
+        this.fallingLeft = new TextureRegion(new Texture("character/characterFallingRight.png"));
+        this.fallingRight = new TextureRegion(new Texture("character/characterFallingLeft.png"));
         TextureRegion[] walkingLeft = new TextureRegion[4];
         walkingLeft[0] = new TextureRegion(new Texture("character/walking/walkLeft2.png"));
         walkingLeft[1] = new TextureRegion(new Texture("character/walking/walkLeft3.png"));
@@ -76,15 +80,21 @@ public class GuyRevamp {
 
     //update method with collision detection.
     public void update(float delta, MapObjects collisionObjects) {
+        if(bouncing) gravityMaxSpeed = 2000f;
+        else gravityMaxSpeed = 600f;
         //update global delta
         this.delta = delta;
+        //update last ground range
+        if(!inputTouchedPostFall) lastGroundY = groundRange[2];
         //set acceleration false, will get set to true if user is moving left or right
         accelerating = false;
         //gravity is applied in handle collision
         handleCollision(collisionObjects);
+        if(Math.abs(lastGroundY - groundRange[2]) >= 400) inputTouchedPostFall = false;
         //handle input
         handleInput();
         jump();
+        if(!inputTouchedPostFall && onGround) currentSprite = fallen;
         //position vector is the only modified variable in methods, update sprite and collision box
         rect.height = currentSprite.getRegionHeight();
         rect.width = currentSprite.getRegionWidth();
@@ -154,7 +164,7 @@ public class GuyRevamp {
             gravitySpeed = 0;
             jumpSpeed = maxJumpSpeed * jumpTimeTwo;
             if((deltaJumpTimer += delta) > .1) jumpTimeTwo = 0;
-            if(onGround && !(groundRange[0] < pos.x && pos.x < groundRange[1])) {
+            if(onGround && !((groundRange[0] - rect.width) < pos.x && pos.x < groundRange[1])) {
                 applyGravity();
                 onGround = false;
             }
@@ -162,12 +172,14 @@ public class GuyRevamp {
         //handle direction swap
         //closest[2] holds the id of rectangle side. 0 and 2 ids declare left or right
         if((closest[2] == 0 || closest[2] == 2) && !onGround && collisionDetected) {
+            bouncing = true;
             if(left) left = false;
             else left = true;
             jumpCancel = true;
         }
         else if(onGround && collisionDetected) {
             jumpTimeTwo = 0;
+            bouncing = false;
         }
     }
 
@@ -201,7 +213,7 @@ public class GuyRevamp {
                         closest[2] = 1;
                         onGround = true;
                         closest[0] = this.rect.x; closest[1] = r.r.y;
-                        groundRange[0] = r.r.x; groundRange[1] = r.r.x + r.r.width;
+                        groundRange[0] = r.r.x; groundRange[1] = r.r.x + r.r.width; groundRange[2] = r.r.y + r.r.height;
                     }
                     //if head collision
                     else {
@@ -240,8 +252,12 @@ public class GuyRevamp {
                 jumpTime = 0;
                 deltaJumpTimer = 0;
                 currentSprite = crouch;
+                if(!inputTouchedPostFall) {
+                    lastGroundY = groundRange[2];
+                    inputTouchedPostFall = true;
+                }
             }
-            else if(Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
+            else if(inputTouchedPostFall && Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
                 //if guy was just walking right, abruptly stop
                 if(!left) {
                     speed = 0;
@@ -253,7 +269,7 @@ public class GuyRevamp {
                 left = true;
                 neu = false;
             }
-            else if(Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
+            else if(inputTouchedPostFall && Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
                 // if guy was just walking left, abruptly stop
                 if(left) {
                     speed = 0;
@@ -265,7 +281,7 @@ public class GuyRevamp {
                 left = false;
                 neu = false;
             }
-            else {
+            else if(inputTouchedPostFall){
                 //neutral, set sprite appropriately
                 currentSprite = neutral;
                 neu = true;
@@ -281,7 +297,11 @@ public class GuyRevamp {
                 speed = 0;
                 frameTime = 0;
             }
-            walkAnimation();
+            if(bouncing) {
+                fallAnimation();
+            }else {
+                walkAnimation();
+            }
             accelerate();
             pos.x += (float) Math.cos(Math.toRadians(180)) * (speed * delta);
             left = true;
@@ -293,7 +313,12 @@ public class GuyRevamp {
                 speed = 0;
                 frameTime = 0;
             }
-            walkAnimation();
+            if(bouncing) {
+                fallAnimation();
+            }
+            else {
+                walkAnimation();
+            }
             accelerate();
             pos.x += (float) Math.cos(Math.toRadians(0)) * (speed * delta);
             left = false;
@@ -311,6 +336,7 @@ public class GuyRevamp {
             jumpSpeed = 0;
         }
         if(!collisionDetected && !Gdx.input.isKeyPressed(Input.Keys.SPACE) && jumpTime < jumpTimeTwo) {
+            if(!neu) speed = MAX_SPEED;
             onGround = false;
             jumpTime += delta;
             jumpAcceleration = maxJumpSpeed / jumpTimeTwo;
@@ -329,7 +355,7 @@ public class GuyRevamp {
     private void accelerate() {
         accelerating = true;
         if(jumping) {
-            speed = MAX_SPEED;
+
         }
         else if((speed + ACCELERATION * delta) < MAX_SPEED) {
             speed += ACCELERATION * delta;
@@ -370,6 +396,18 @@ public class GuyRevamp {
             //base frame duration on current speed.
             walkingRight.setFrameDuration((MAX_SPEED / FRAME_DURATION_FACTOR) / speed);
             currentSprite = walkingRight.getKeyFrame(frameTime, true);
+        }
+    }
+
+    //uses global left to determine which animation to apply to current sprite
+    private void fallAnimation() {
+        if(left) {
+            currentSprite = fallingLeft;
+            if(!inputTouchedPostFall && onGround) currentSprite = fallen;
+        }
+        else {
+            currentSprite = fallingRight;
+            if(!inputTouchedPostFall && onGround) currentSprite = fallen;
         }
     }
 
